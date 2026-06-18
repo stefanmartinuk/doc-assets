@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Інтерактивна схема: JST-JH до USB</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        h1 {
+            margin-bottom: 20px;
+            font-size: 24px;
+            color: #e0e0e0;
+        }
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            background: #1e1e1e;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            border: 1px solid transparent;
+            border-radius: 5px;
+            background-color: #2d2d2d;
+            color: #ccc;
+            transition: all 0.2s;
+        }
+        button:hover {
+            background-color: #3d3d3d;
+            color: #fff;
+        }
+        button.active {
+            background-color: #007bff;
+            color: #fff;
+            border-color: #0056b3;
+            box-shadow: 0 0 10px rgba(0, 123, 255, 0.3);
+        }
+        .canvas-container {
+            background-color: #1a1a1a;
+            border: 2px solid #333;
+            border-radius: 8px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.6);
+            padding: 20px;
+        }
+        svg {
+            width: 800px;
+            height: 480px;
+        }
+        .box {
+            fill: #262626;
+            stroke: #666;
+            stroke-width: 2;
+            transition: height 0.4s ease;
+        }
+        .pin {
+            fill: #444;
+            stroke: #999;
+            stroke-width: 2;
+        }
+        .wire {
+            fill: none;
+            stroke-width: 4;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            cursor: pointer;
+            transition: stroke-width 0.1s, opacity 0.2s, stroke 0.2s;
+        }
+        .wire:hover {
+            stroke-width: 8;
+        }
+        .wire.dimmed {
+            opacity: 0.15 !important;
+        }
+        .wire-label {
+            font-size: 13px;
+            fill: #bbb;
+            user-select: none;
+            pointer-events: none;
+            font-family: monospace;
+        }
+        .header-text {
+            font-size: 16px;
+            font-weight: bold;
+            fill: #fff;
+            letter-spacing: 1px;
+        }
+        #info-box {
+            margin-top: 20px;
+            padding: 15px 20px;
+            width: 760px;
+            background-color: #1e1e1e;
+            border-left: 5px solid #007bff;
+            border-radius: 0 8px 8px 0;
+            min-height: 24px;
+            font-size: 15px;
+            color: #e0e0e0;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        .highlight-text {
+            color: #007bff;
+            font-weight: bold;
+        }
+
+        /* Visibility Logic for SVG Elements */
+        .svg-el {
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        
+        /* Mode: 8-pin to USB 2.0 */
+        body.mode-8to2 .show-8to2 { opacity: 1; pointer-events: auto; }
+        body.mode-8to2 .show-8 { opacity: 1; }
+        
+        /* Mode: 8-pin to USB 3.0 */
+        body.mode-8to3 .show-8to3 { opacity: 1; pointer-events: auto; }
+        body.mode-8to3 .show-8 { opacity: 1; }
+        body.mode-8to3 .show-usb3 { opacity: 1; }
+
+        /* Mode: 4-pin to USB 2.0 */
+        body.mode-4to2 .show-4to2 { opacity: 1; pointer-events: auto; }
+        body.mode-4to2 .show-4 { opacity: 1; }
+    </style>
+</head>
+<body class="mode-8to3" id="app-body">
+
+    <h1>Інтерактивна схема Cable Management</h1>
+    
+    <div class="controls">
+        <button id="btn-8to2" onclick="setMode('8to2')">8-pin ➔ USB 2.0</button>
+        <button id="btn-8to3" class="active" onclick="setMode('8to3')">8-pin ➔ USB 3.0</button>
+        <button id="btn-4to2" onclick="setMode('4to2')">4-pin ➔ USB 2.0</button>
+    </div>
+
+    <div class="canvas-container">
+        <svg id="schematic" xmlns="http://www.w3.org/2000/svg">
+            
+            <!-- Headers -->
+            <text x="50" y="40" class="header-text svg-el show-8">JST-JH 8-PIN (ПЛАТА)</text>
+            <text x="50" y="40" class="header-text svg-el show-4">JST-JH 4-PIN (ПЛАТА)</text>
+            <text x="610" y="40" class="header-text">USB TYPE-A (РОЗЕТКА)</text>
+
+            <!-- Connector Boxes -->
+            <rect id="jst-box" x="50" y="70" width="120" height="340" class="box" />
+            <rect id="usb-box" x="600" y="70" width="150" height="380" class="box" />
+
+            <!-- WIRES GROUP (Drawn under pins/text) -->
+            <g id="wire-group">
+                
+                <!-- ============================================== -->
+                <!-- MODE 1: 8-PIN TO USB 2.0 -->
+                <!-- ============================================== -->
+                <g class="svg-el show-8to2">
+                    <path d="M 170 100 L 600 100" class="wire" stroke="#ff4d4d" data-info="Pin 1 (VBUS): Лінія живлення +5V. Колір: Червоний."/>
+                    <path d="M 170 140 L 200 140 L 200 220 L 600 220" class="wire" stroke="#888888" data-info="Pin 2 до Pin 4 (GND): Загальне заземлення. Колір: Чорний."/>
+                    <path d="M 170 340 L 230 340 L 230 180 L 600 180" class="wire" stroke="#4dff4d" data-info="Pin 7 до Pin 3 (D+): USB 2.0 Дані (Плюс). Колір: Зелений."/>
+                    <path d="M 170 380 L 260 380 L 260 140 L 600 140" class="wire" stroke="#ffffff" data-info="Pin 8 до Pin 2 (D-): USB 2.0 Дані (Мінус). Колір: Білий."/>
+                </g>
+
+                <!-- ============================================== -->
+                <!-- MODE 2: 8-PIN TO USB 3.0 -->
+                <!-- ============================================== -->
+                <g class="svg-el show-8to3">
+                    <path d="M 170 100 L 600 100" class="wire" stroke="#ff4d4d" data-info="Pin 1 (VBUS): Лінія живлення +5V. Колір: Червоний."/>
+                    <path d="M 170 140 L 200 140 L 200 220 L 600 220" class="wire" stroke="#888888" data-info="Pin 2 до Pin 4 (GND): Загальне заземлення. Колір: Чорний."/>
+                    
+                    <!-- Splice for GND_DRAIN -->
+                    <path d="M 200 140 L 200 340 L 600 340" class="wire" stroke="#555555" stroke-dasharray="6,4" data-info="Розгалуження Pin 2 до Pin 7 (GND_DRAIN): Екранування для SuperSpeed. Обов'язково на землю."/>
+                    <circle cx="200" cy="140" r="5" fill="#888888" />
+
+                    <!-- Data Lines -->
+                    <path d="M 170 180 L 320 180 L 320 420 L 600 420" class="wire" stroke="#ff9933" data-info="Pin 3 до Pin 9 (SSTX+): SuperSpeed Передача (Плюс). Колір: Помаранчевий."/>
+                    <path d="M 170 220 L 290 220 L 290 380 L 600 380" class="wire" stroke="#b366ff" data-info="Pin 4 до Pin 8 (SSTX-): SuperSpeed Передача (Мінус). Колір: Фіолетовий."/>
+                    <path d="M 170 260 L 260 260 L 260 300 L 600 300" class="wire" stroke="#ffff4d" data-info="Pin 5 до Pin 6 (SSRX+): SuperSpeed Прийом (Плюс). Колір: Жовтий."/>
+                    <path d="M 170 300 L 230 300 L 230 260 L 600 260" class="wire" stroke="#4d4dff" data-info="Pin 6 до Pin 5 (SSRX-): SuperSpeed Прийом (Мінус). Колір: Синій."/>
+                    
+                    <path d="M 170 340 L 350 340 L 350 180 L 600 180" class="wire" stroke="#4dff4d" data-info="Pin 7 до Pin 3 (D+): USB 2.0 Дані (Плюс). Колір: Зелений."/>
+                    <path d="M 170 380 L 380 380 L 380 140 L 600 140" class="wire" stroke="#ffffff" data-info="Pin 8 до Pin 2 (D-): USB 2.0 Дані (Мінус). Колір: Білий."/>
+                </g>
+
+                <!-- ============================================== -->
+                <!-- MODE 3: 4-PIN TO USB 2.0 -->
+                <!-- ============================================== -->
+                <g class="svg-el show-4to2">
+                    <path d="M 170 100 L 600 100" class="wire" stroke="#ff4d4d" data-info="Pin 1 (VBUS): Лінія живлення +5V. Колір: Червоний."/>
+                    <path d="M 170 140 L 200 140 L 200 220 L 600 220" class="wire" stroke="#888888" data-info="Pin 2 до Pin 4 (GND): Загальне заземлення. Колір: Чорний."/>
+                    <path d="M 170 180 L 600 180" class="wire" stroke="#4dff4d" data-info="Pin 3 до Pin 3 (D+): USB 2.0 Дані (Плюс). Колір: Зелений."/>
+                    <path d="M 170 220 L 230 220 L 230 140 L 600 140" class="wire" stroke="#ffffff" data-info="Pin 4 до Pin 2 (D-): USB 2.0 Дані (Мінус). Колір: Білий."/>
+                </g>
+            </g>
+
+            <!-- ============================================== -->
+            <!-- JST PINS & LABELS -->
+            <!-- ============================================== -->
+            <!-- PINS 1-4 (Always visible) -->
+            <rect x="150" y="90" width="20" height="20" class="pin" />
+            <text x="65" y="105" class="wire-label">1: VBUS</text>
+            
+            <rect x="150" y="130" width="20" height="20" class="pin" />
+            <text x="65" y="145" class="wire-label">2: GND</text>
+            
+            <rect x="150" y="170" width="20" height="20" class="pin" />
+            <text x="65" y="185" class="wire-label svg-el show-8">3: T+ (TX+)</text>
+            <text x="65" y="185" class="wire-label svg-el show-4" fill="#4dff4d">3: D+</text>
+            
+            <rect x="150" y="210" width="20" height="20" class="pin" />
+            <text x="65" y="225" class="wire-label svg-el show-8">4: T- (TX-)</text>
+            <text x="65" y="225" class="wire-label svg-el show-4" fill="#ffffff">4: D-</text>
+
+            <!-- PINS 5-8 (Visible only in 8-pin modes) -->
+            <g class="svg-el show-8">
+                <rect x="150" y="250" width="20" height="20" class="pin" />
+                <text x="65" y="265" class="wire-label">5: R+ (RX+)</text>
+                
+                <rect x="150" y="290" width="20" height="20" class="pin" />
+                <text x="65" y="305" class="wire-label">6: R- (RX-)</text>
+                
+                <rect x="150" y="330" width="20" height="20" class="pin" />
+                <text x="65" y="345" class="wire-label">7: D+</text>
+                
+                <rect x="150" y="370" width="20" height="20" class="pin" />
+                <text x="65" y="385" class="wire-label">8: D-</text>
+            </g>
+
+            <!-- ============================================== -->
+            <!-- USB TYPE-A PINS & LABELS -->
+            <!-- ============================================== -->
+            <!-- USB 2.0 Pins (Always visible) -->
+            <rect x="600" y="90" width="20" height="20" class="pin" />
+            <text x="630" y="105" class="wire-label">1: VBUS</text>
+            
+            <rect x="600" y="130" width="20" height="20" class="pin" />
+            <text x="630" y="145" class="wire-label">2: D-</text>
+            
+            <rect x="600" y="170" width="20" height="20" class="pin" />
+            <text x="630" y="185" class="wire-label">3: D+</text>
+            
+            <rect x="600" y="210" width="20" height="20" class="pin" />
+            <text x="630" y="225" class="wire-label">4: GND</text>
+            
+            <!-- USB 3.0 Extra Pins (Visible only in 8to3 mode) -->
+            <g class="svg-el show-usb3">
+                <rect x="600" y="250" width="20" height="20" class="pin" />
+                <text x="630" y="265" class="wire-label">5: SSRX-</text>
+                
+                <rect x="600" y="290" width="20" height="20" class="pin" />
+                <text x="630" y="305" class="wire-label">6: SSRX+</text>
+                
+                <rect x="600" y="330" width="20" height="20" class="pin" />
+                <text x="630" y="345" class="wire-label">7: GND_DRAIN</text>
+                
+                <rect x="600" y="370" width="20" height="20" class="pin" />
+                <text x="630" y="385" class="wire-label">8: SSTX-</text>
+                
+                <rect x="600" y="410" width="20" height="20" class="pin" />
+                <text x="630" y="425" class="wire-label">9: SSTX+</text>
+            </g>
+
+        </svg>
+    </div>
+
+    <div id="info-box">
+        <span class="highlight-text">Статус:</span> Наведіть курсор на будь-який дріт, щоб побачити деталі маршрутизації та колір.
+    </div>
+
+    <script>
+        const wires = document.querySelectorAll('.wire');
+        const infoBox = document.getElementById('info-box');
+        const defaultText = '<span class="highlight-text">Статус:</span> Наведіть курсор на будь-який дріт, щоб побачити деталі маршрутизації та колір.';
+
+        // Налаштування подій для дротів (Tooltip effect)
+        wires.forEach(wire => {
+            wire.addEventListener('mouseenter', () => {
+                // Затемнення всіх дротів
+                wires.forEach(w => w.classList.add('dimmed'));
+                // Підсвітка активного
+                wire.classList.remove('dimmed');
+                // Виведення інформації з data-атрибуту
+                infoBox.innerHTML = `<span class="highlight-text">Обраний маршрут:</span> ${wire.getAttribute('data-info')}`;
+            });
+
+            wire.addEventListener('mouseleave', () => {
+                // Повернення до норми
+                wires.forEach(w => w.classList.remove('dimmed'));
+                infoBox.innerHTML = defaultText;
+            });
+        });
+
+        // Функція перемикання режимів
+        function setMode(mode) {
+            const body = document.getElementById('app-body');
+            const jstBox = document.getElementById('jst-box');
+            const usbBox = document.getElementById('usb-box');
+            
+            // Очищення активних класів на кнопках
+            document.getElementById('btn-8to2').classList.remove('active');
+            document.getElementById('btn-8to3').classList.remove('active');
+            document.getElementById('btn-4to2').classList.remove('active');
+            
+            // Встановлення нового режиму
+            document.getElementById(`btn-${mode}`).classList.add('active');
+            body.className = `mode-${mode}`;
+
+            // Динамічна зміна висоти JST конектора
+            if (mode === '4to2') {
+                jstBox.setAttribute('height', '180');
+            } else {
+                jstBox.setAttribute('height', '340');
+            }
+
+            // Динамічна зміна висоти USB конектора
+            if (mode === '8to3') {
+                usbBox.setAttribute('height', '380');
+            } else {
+                usbBox.setAttribute('height', '180');
+            }
+        }
+    </script>
+</body>
+</html>
