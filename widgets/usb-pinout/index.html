@@ -14,20 +14,27 @@
             flex-direction: column;
             align-items: center;
             padding: 20px;
+            box-sizing: border-box;
         }
         h1 {
             margin-bottom: 20px;
             font-size: 24px;
             color: #e0e0e0;
+            text-align: center;
         }
         .controls {
             margin-bottom: 20px;
             display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
             gap: 15px;
             background: #1e1e1e;
             padding: 10px;
             border-radius: 8px;
             border: 1px solid #333;
+            width: 100%;
+            max-width: 860px;
+            box-sizing: border-box;
         }
         button {
             padding: 10px 20px;
@@ -56,10 +63,14 @@
             border-radius: 8px;
             box-shadow: 0 8px 25px rgba(0,0,0,0.6);
             padding: 20px;
+            width: 100%;
+            max-width: 860px;
+            box-sizing: border-box;
         }
         svg {
-            width: 860px;
-            height: 480px;
+            width: 100%;
+            height: auto;
+            display: block;
         }
         .box {
             fill: #262626;
@@ -102,18 +113,23 @@
         #info-box {
             margin-top: 20px;
             padding: 15px 20px;
-            width: 820px;
+            width: 100%;
+            max-width: 860px;
+            box-sizing: border-box;
             background-color: #1e1e1e;
             border-left: 5px solid #007bff;
-            border-radius: 0 8px 8px 0;
-            min-height: 24px;
+            border-radius: 4px;
+            min-height: 54px;
             font-size: 15px;
             color: #e0e0e0;
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
         }
         .highlight-text {
             color: #007bff;
             font-weight: bold;
+            margin-right: 5px;
         }
 
         /* Visibility Logic for SVG Elements */
@@ -148,7 +164,8 @@
     </div>
 
     <div class="canvas-container">
-        <svg id="schematic" xmlns="http://www.w3.org/2000/svg">
+        <!-- Додано viewBox для респонсивності -->
+        <svg id="schematic" viewBox="0 0 860 480" xmlns="http://www.w3.org/2000/svg">
             
             <!-- Headers -->
             <text x="50" y="40" class="header-text svg-el show-8">JST-JH 8-PIN (ПЛАТА)</text>
@@ -275,13 +292,15 @@
     </div>
 
     <div id="info-box">
-        <span class="highlight-text">Статус:</span> Наведіть курсор на будь-який дріт, щоб побачити деталі маршрутизації та колір.
+        <div>
+            <span class="highlight-text">Статус:</span> <span id="info-text">Наведіть курсор на будь-який дріт, щоб побачити деталі маршрутизації та колір.</span>
+        </div>
     </div>
 
     <script>
         const wires = document.querySelectorAll('.wire');
-        const infoBox = document.getElementById('info-box');
-        const defaultText = '<span class="highlight-text">Статус:</span> Наведіть курсор на будь-який дріт, щоб побачити деталі маршрутизації та колір.';
+        const infoText = document.getElementById('info-text');
+        const defaultText = 'Наведіть курсор на будь-який дріт, щоб побачити деталі маршрутизації та колір.';
 
         // Налаштування подій для дротів (Tooltip effect)
         wires.forEach(wire => {
@@ -291,13 +310,15 @@
                 // Підсвітка активного
                 wire.classList.remove('dimmed');
                 // Виведення інформації з data-атрибуту
-                infoBox.innerHTML = `<span class="highlight-text">Обраний маршрут:</span> ${wire.getAttribute('data-info')}`;
+                document.querySelector('.highlight-text').textContent = 'Обраний маршрут:';
+                infoText.textContent = wire.getAttribute('data-info');
             });
 
             wire.addEventListener('mouseleave', () => {
                 // Повернення до норми
                 wires.forEach(w => w.classList.remove('dimmed'));
-                infoBox.innerHTML = defaultText;
+                document.querySelector('.highlight-text').textContent = 'Статус:';
+                infoText.textContent = defaultText;
             });
         });
 
